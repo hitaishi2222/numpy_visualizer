@@ -19,23 +19,25 @@ from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from htmx_fastapi.npz_store import (
+from htmx_fastapi.h5_store import (
     ArrayMeta,
     NpzError,
     evict_all,
     format_preview,
     get_array,
     get_stats,
-    open_npz,
+    open_array_file,
     scan_dir,
 )
-from htmx_fastapi.panels import GRID_2D, LINE_1D, PanelSpec, build_panels
+from htmx_fastapi.panels import GRID_2D, LINE_1D, VOLUME_3D, PanelSpec, build_panels
 
 app = FastAPI(title="NPZ Visualizer (HTMX)")
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 #: Cap on points shipped per series/grid axis to keep JSON payloads sane.
 MAX_POINTS = 200_000
+#: Cap per axis for volumetric (3-D) payloads — Plotly handles ~50^3 well.
+MAX_AXIS_3D = 48
 
 
 @dataclass
@@ -89,9 +91,11 @@ def _downsample(*cols: np.ndarray) -> list[np.ndarray]:
 
 
 def _panel_payload(panel: PanelSpec) -> dict:
-    """JSON body for one panel consumed by the ECharts renderer."""
+    """JSON body for one panel consumed by the ECharts/Plotly renderers."""
     if panel.kind in ("grid", "slice"):
         arr3d = get_array(_full_path(), panel.array2d_key)
+        if panel.kind == "slice" and panel.plot_type in VOLUME_3D:
+            return _volume_payload(np.asarray(arr3d, dtype=float), panel.plot_type)
         grid = arr3d[panel.slice_index] if panel.kind == "slice" else arr3d
         z = np.atleast_2d(np.asarray(grid, dtype=float))
         rows, cols = z.shape
@@ -123,6 +127,39 @@ def _panel_payload(panel: PanelSpec) -> dict:
     return {"kind": panel.kind, "plot_type": panel.plot_type, "series": series}
 
 
+def _volume_payload(arr: np.ndarray, plot_type: str) -> dict:
+    """Volumetric payload for a 3-D+ array: flat x/y/z/v point lists.
+
+    Each axis is stride-downsampled to ``MAX_AXIS_3D`` so the JSON stays
+    small; non-finite values are dropped.
+    """
+    vol = arr.reshape(-1, *arr.shape[-3:])[-1] if arr.ndim > 3 else arr
+    strides = tuple(max(1, int(np.ceil(d / MAX_AXIS_3D))) for d in vol.shape)
+    sub = vol[:: strides[0], :: strides[1], :: strides[2]]
+    nz, ny, nx = sub.shape
+    gi, gj, gk = np.meshgrid(
+        np.arange(nx) * strides[2],
+        np.arange(ny) * strides[1],
+        np.arange(nz) * strides[0],
+        indexing="ij",
+    )
+    # meshgrid 'ij' yields (nx, ny, nz); transpose to sub's (z, y, x) order.
+    xs = np.transpose(gi, (2, 1, 0))
+    ys = np.transpose(gj, (2, 1, 0))
+    zs = np.transpose(gk, (2, 1, 0))
+    mask = np.isfinite(sub)
+    return {
+        "kind": "slice",
+        "plot_type": plot_type,
+        "mode": "3d",
+        "shape": list(vol.shape),
+        "x": xs[mask].tolist(),
+        "y": ys[mask].tolist(),
+        "z": zs[mask].tolist(),
+        "v": sub[mask].tolist(),
+    }
+
+
 def _full_path() -> str:
     return str(Path(state.dir_path) / state.open_file)
 
@@ -132,8 +169,8 @@ def _render(request: Request, template: str, **ctx) -> HTMLResponse:
     ctx.setdefault("state", state)
     ctx.setdefault("LINE_1D", LINE_1D)
     ctx.setdefault("GRID_2D", GRID_2D)
-    if template.endswith(("panels.html", "workspace.html", "after_scan.html")):
-        ctx.setdefault("panels", _panels())
+    ctx.setdefault("VOLUME_3D", VOLUME_3D)
+    ctx.setdefault("panels", _panels())
     return templates.TemplateResponse(request, template, ctx)
 
 
@@ -159,7 +196,7 @@ def scan(request: Request, dir_path: str = Form("")):
 def open_file(request: Request, name: str):
     state.open_error = None
     try:
-        handle = open_npz(str(Path(state.dir_path) / name))
+        handle = open_array_file(str(Path(state.dir_path) / name))
     except NpzError as exc:
         state.open_file = name
         state.open_error = str(exc)
@@ -174,7 +211,7 @@ def open_file(request: Request, name: str):
     return _render(request, "partials/workspace.html")
 
 
-@app.post("/toggle/{name}", response_class=HTMLResponse)
+@app.post("/toggle/{name:path}", response_class=HTMLResponse)
 def toggle(request: Request, name: str):
     if name in state.selected:
         state.selected.discard(name)
@@ -210,7 +247,9 @@ def set_x(request: Request, x_key: str = Form("")):
 def set_type(request: Request, panel_id: str, plot_type: str = Form("")):
     panels = _panels()
     panel = next((p for p in panels if p.id == panel_id), None)
-    if panel is not None and (plot_type in LINE_1D or plot_type in GRID_2D):
+    if panel is not None and (
+        plot_type in LINE_1D or plot_type in GRID_2D or plot_type in VOLUME_3D
+    ):
         key = "" if panel.kind == "overlay" else (
             panel.x_key or "" if panel.kind == "xy"
             else panel.array2d_key or (panel.series[0] if panel.series else "")
@@ -219,7 +258,7 @@ def set_type(request: Request, panel_id: str, plot_type: str = Form("")):
     return _render(request, "partials/panels.html")
 
 
-@app.get("/stats/{name}", response_class=HTMLResponse)
+@app.get("/stats/{name:path}", response_class=HTMLResponse)
 def stats(request: Request, name: str):
     arr = _array_by_name(name)
     if arr is None or state.open_file is None:

@@ -13,6 +13,7 @@
   </script>
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <style>
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-thumb { background: #2a3245; border-radius: 8px; }
@@ -99,9 +100,10 @@
   <script>
     // Dispose charts whose host elements are about to be replaced.
     document.addEventListener('htmx:beforeSwap', function () {
-      document.querySelectorAll('[data-chart-id]').forEach(function (el) {
+      document.querySelectorAll('[data-panel-id]').forEach(function (el) {
         var inst = echarts.getInstanceByDom(el);
         if (inst) inst.dispose();
+        if (el.classList.contains('js-plotly-plot')) Plotly.purge(el);
       });
     });
     document.addEventListener('htmx:afterSwap', renderCharts);
@@ -118,6 +120,7 @@
     }
 
     function buildChart(el, payload) {
+      if (payload.mode === '3d') return buildChart3D(el, payload);
       var chart = echarts.init(el, null, { renderer: 'canvas' });
       if (payload.error) return;
       var option;
@@ -128,6 +131,62 @@
       }
       chart.setOption(option);
       new ResizeObserver(function () { chart.resize(); }).observe(el);
+    }
+
+    function buildChart3D(el, payload) {
+      if (payload.error) return;
+      var scene = {
+        bgcolor: 'rgba(0,0,0,0)',
+        xaxis: { gridcolor: '#1b2233', title: { text: 'x', font: { color: '#94a3b8', size: 11 } } },
+        yaxis: { gridcolor: '#1b2233', title: { text: 'y', font: { color: '#94a3b8', size: 11 } } },
+        zaxis: { gridcolor: '#1b2233', title: { text: 'z', font: { color: '#94a3b8', size: 11 } } }
+      };
+      var layout = {
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        margin: { l: 0, r: 0, t: 8, b: 0 },
+        scene: scene,
+        showlegend: false
+      };
+      var trace;
+      if (payload.plot_type === 'surface') {
+        trace = {
+          type: 'isosurface',
+          x: payload.x, y: payload.y, z: payload.z, value: payload.v,
+          isomin: quartile(payload.v, 0.8),
+          isomax: Math.max.apply(null, payload.v),
+          surface: { count: 4, fill: 0.9 },
+          colorscale: 'Viridis',
+          showscale: true,
+          colorbar: { thickness: 10, tickfont: { color: '#94a3b8', size: 10 } }
+        };
+      } else {
+        var idx = payload.v.map(function (_, i) { return i; });
+        if (idx.length > 25000) {
+          var step = Math.ceil(idx.length / 25000);
+          idx = idx.filter(function (_, i) { return i % step === 0; });
+        }
+        var pick = function (arr) { return idx.map(function (i) { return arr[i]; }); };
+        trace = {
+          type: 'scatter3d',
+          mode: 'markers',
+          x: pick(payload.x), y: pick(payload.y), z: pick(payload.z),
+          marker: {
+            color: pick(payload.v), size: 2.5, opacity: 0.4,
+            colorscale: 'Viridis',
+            colorbar: { thickness: 10, tickfont: { color: '#94a3b8', size: 10 } }
+          }
+        };
+      }
+      Plotly.newPlot(el, [trace], layout, { responsive: true });
+    }
+
+    function quartile(sortedAsc, q) {
+      if (!sortedAsc.length) return 0;
+      var pos = (sortedAsc.length - 1) * q;
+      var base = Math.floor(pos);
+      var rest = pos - base;
+      var s = sortedAsc.slice().sort(function (a, b) { return a - b; });
+      return s[base] + (s[base + 1] !== undefined ? rest * (s[base + 1] - s[base]) : 0);
     }
 
     function baseAxis() {

@@ -27,7 +27,8 @@ Both share the same feature set and the same pure core logic
 - **Auto chart types by dimension**
   - 1-D → line chart (x = index)
   - 2-D → heatmap
-  - 3-D+ → first-slice card (`arr[0]`), badged `slice [0]`
+  - 3-D+ → first-slice card (`arr[0]`), badged `slice [0]`; the HTMX version
+    can also render the full volume in 3-D (Plotly isosurface / scatter3d)
 - **Per-panel plot-type switching** — 1-D: line / bar / scatter / stem;
   2-D (and 3-D+ slices): heatmap / contour.
 - **Multi-array layout** — equal-length 1-D arrays overlay as multiple series
@@ -84,6 +85,7 @@ reflex_xy/               Reflex implementation
   npz_visualizer/        App package
     state.py             Dashboard state + events (scan/open/select/X-Y/type)
     npz_store.py         .npz scan, open (allow_pickle=False), cache, stats
+    h5_store.py          Unified .npz + .h5/.hdf5 store (HDF5 groups flattened)
     panels.py            Pure panel-grouping logic (no Reflex)
     charts.py            The only module importing reflex_xy / xy
     ui.py                Layout (top bar, sidebar, panel grid)
@@ -93,11 +95,12 @@ reflex_xy/               Reflex implementation
 htmx_fastapi/            HTMX + FastAPI implementation (see its README)
   main.py                Routes + single-user state
   npz_store.py           Shared core (copy of the Reflex-free store)
+  h5_store.py            Unified .npz + .h5/.hdf5 store (copy)
   panels.py              Shared core (copy of the grouping logic)
   templates/             Jinja2 page shell + HTMX fragments
 
-data/                    Sample .npz archives for trying the apps
-scripts/                 e2e_npz.py (headless E2E + perf), cdp.mjs (browser debug helper)
+data/                    Sample archives (.npz and .h5) for trying the apps
+scripts/                 e2e_npz.py (E2E + perf), make_sample_h5.py, cdp.mjs
 tests/                   pytest suite (npz_store, panels, charts)
 docs/                    xy engine reference notes
 openspec/                OpenSpec change history (add-npz-visualizer)
@@ -129,3 +132,37 @@ out-of-band-swaps the panel grid; chart data is fetched separately as JSON.
 - **One file open at a time.** Opening a different file (or rescanning)
   clears the previous selection, X assignment, and plot-type overrides.
 - **No file upload** — scanning is directory-based only.
+
+## Roadmap
+
+### Both versions
+
+- [x] **HDF5 support** — open `.h5` / `.hdf5` files alongside `.npz`; nested
+  groups are flattened to path-keys (`group/dataset`) and every existing
+  panel type (1-D, 2-D, Plotly 3-D volumes) works unchanged.
+- [ ] **More plot families** — histogram, box plot, imshow with per-channel
+  RGB compositing for `(H, W, 3)` arrays, error bars / bands.
+- [ ] **Slice explorer for N-D** — axis sliders (index per dimension) instead
+  of the fixed `slice [0]` card, with play/animate.
+- [ ] **Array math** — derived series (`a - b`, `a * 2`, rolling mean) without
+  leaving the browser session.
+- [ ] **Export** — download any panel as PNG/SVG or CSV of its series.
+- [ ] **Session persistence** — remember dir path, open file, selection,
+  X assignment, and type overrides across restarts.
+- [ ] **Multiple open files** — compare arrays across archives in one grid.
+- [ ] **Drag-to-zoom + crosshair sync** across panels sharing an X array.
+
+### `reflex_xy/` specifically
+
+- [ ] Revisit `xy` pin after its 1.0 — adopt new mark types as they land.
+- [ ] Binary transfer for heatmap `z` (currently materialized server-side per
+  rebuild); consider websocket streaming for very large grids.
+- [ ] Panel drag-reorder / resize within the slot grid.
+
+### `htmx_fastapi/` specifically
+
+- [ ] Vendor Tailwind / HTMX / ECharts locally so the tool works fully
+  offline.
+- [ ] WebSocket channel for live-updating charts (tail a growing `.npy`).
+- [ ] Per-session state (currently one global `AppState`) if multi-tab use
+  ever matters.

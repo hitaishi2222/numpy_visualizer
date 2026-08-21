@@ -18,7 +18,7 @@
       <form hx-post="/type/{{ p.id }}" hx-target="#panels-region" class="ml-auto">
         <select name="plot_type" onchange="this.form.requestSubmit()"
                 class="px-2 py-1 text-xs rounded-lg bg-[#0b0e14] border border-edge focus:border-indigo-500 focus:outline-none">
-          {% set opts = GRID_2D if p.kind in ('grid', 'slice') else LINE_1D %}
+          {% set opts = (GRID_2D | list + VOLUME_3D | list) if p.kind in ('grid', 'slice') else LINE_1D %}
           {% for opt in opts %}
           <option value="{{ opt }}" {% if p.plot_type == opt %}selected{% endif %}>{{ opt }}</option>
           {% endfor %}

@@ -45,7 +45,7 @@ from npz_visualizer.panels import (
     build_panels,
     state_key,
 )
-from npz_visualizer.npz_store import get_array
+from npz_visualizer.h5_store import get_array
 
 Dashboard = state_module.Dashboard
 

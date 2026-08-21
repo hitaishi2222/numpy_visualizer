@@ -21,14 +21,14 @@ from npz_visualizer.panels import (
     build_panels,
     state_key,
 )
-from npz_visualizer.npz_store import (
+from npz_visualizer.h5_store import (
     ArrayMeta,
     FileEntry,
     NpzError,
     evict_all,
     format_preview,
     format_size,
-    open_npz,
+    open_array_file,
     scan_dir,
 )
 
@@ -112,7 +112,7 @@ class Dashboard(rx.State):
         self.open_error = None
         full_path = str(Path(self.dir_path) / name)
         try:
-            handle = open_npz(full_path)
+            handle = open_array_file(full_path)
         except NpzError as exc:
             self.open_file = name
             self.open_error = str(exc)
@@ -322,7 +322,7 @@ class Dashboard(rx.State):
             self.computing_stats.discard(name)
             return
         try:
-            from npz_visualizer.npz_store import compute_stats, get_stats
+            from npz_visualizer.h5_store import get_stats
 
             stats = get_stats(full_path, name)
         except NpzError:

@@ -15,13 +15,18 @@ Then open http://localhost:8182, enter a folder path, and Scan.
 
 ## Features (parity with the Reflex version)
 
-- Directory scan → file list → open `.npz` (`allow_pickle=False`)
+- Directory scan → file list → open `.npz` **or `.h5`/`.hdf5`**
+  (`allow_pickle=False` for npz; HDF5 groups flattened to `group/dataset`
+  path-keys, soft/external links skipped)
 - Array cards: dim badge, shape/dtype/size, 1-D preview, lazy stats
 - Selection (toggle / All / Clear) with server-driven checkbox state
 - Panel grouping identical to `panels.py`: index overlay, X/Y mode with
   length-mismatch exclusion, per-2-D-array grids, 3-D+ first-slice cards
 - Per-panel plot-type switching — 1-D: line/bar/scatter/stem,
   2-D: heatmap/contour (contour rendered as a smooth heat map)
+- **3-D volumetric plots for N-D arrays** (Plotly): `surface` (isosurface of
+  the top value shells) and `scatter3d` (translucent voxel cloud colored by
+  value), each axis stride-downsampled to ≤48 samples
 - Series/grid data served as JSON from `/data/{panel_id}`, stride-downsampled
   to ≤ ~200k points
 
@@ -32,7 +37,7 @@ Then open http://localhost:8182, enter a folder path, and Scan.
 | `main.py` | FastAPI routes + in-memory single-user state |
 | `npz_store.py` | `.npz` scan/open/stats (copied from the Reflex app, Reflex-free) |
 | `panels.py` | Pure panel-grouping logic (same as the Reflex app) |
-| `templates/index.html` | Page shell + ECharts renderer script |
+| `templates/index.html` | Page shell + ECharts/Plotly renderer script |
 | `templates/partials/*` | HTMX fragments (files, arrays, panels, stats) |
 
 ## Notes

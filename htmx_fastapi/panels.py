@@ -29,6 +29,8 @@ from htmx_fastapi.npz_store import ArrayMeta
 LINE_1D = ("line", "bar", "scatter", "stem")
 # 2-D mark families.
 GRID_2D = ("heatmap", "contour")
+# 3-D+ mark families (rendered with Plotly; see main._panel_payload).
+VOLUME_3D = ("surface", "scatter3d")
 
 #: Fixed cap on the number of simultaneously visible panel slots in the main
 #: grid (see :attr:`npz_visualizer.state.Dashboard` figure slots). Kept here in
@@ -112,6 +114,10 @@ def _default_plot_type(kind: str, name: str, panel_types: dict[str, str]) -> str
     """Resolve the plot type for a panel, honouring user ``panel_types``."""
     override = panel_types.get(name)
     if kind in ("grid", "slice") and override in GRID_2D:
+        return override
+    if kind == "slice" and override in VOLUME_3D:
+        # 3-D+ cards can switch from a flat first-slice view to a full
+        # volumetric Plotly render (surface / scatter3d).
         return override
     if kind in ("overlay", "xy", "standalone") and override in LINE_1D:
         return override
