@@ -1,0 +1,51 @@
+{% if panels %}
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+  {% for p in panels %}
+  <div class="rounded-xl bg-card border border-edge overflow-hidden">
+    <div class="flex items-center gap-2 px-4 py-3 border-b border-edge">
+      <h2 class="text-sm font-bold truncate">{{ p.title }}</h2>
+      {% if p.kind == 'overlay' %}
+      <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300">overlay</span>
+      {% elif p.kind == 'xy' %}
+      <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-300">X/Y</span>
+      {% elif p.kind == 'standalone' %}
+      <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-300">series</span>
+      {% elif p.kind == 'grid' %}
+      <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300">grid</span>
+      {% else %}
+      <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-300">slice</span>
+      {% endif %}
+      <form hx-post="/type/{{ p.id }}" hx-target="#panels-region" class="ml-auto">
+        <select name="plot_type" onchange="this.form.requestSubmit()"
+                class="px-2 py-1 text-xs rounded-lg bg-[#0b0e14] border border-edge focus:border-indigo-500 focus:outline-none">
+          {% set opts = GRID_2D if p.kind in ('grid', 'slice') else LINE_1D %}
+          {% for opt in opts %}
+          <option value="{{ opt }}" {% if p.plot_type == opt %}selected{% endif %}>{{ opt }}</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+
+    {% if p.mismatched %}
+    <div class="px-4 pt-2 space-y-0.5">
+      {% for m in p.mismatched %}
+      <p class="text-xs text-slate-500">{{ m[0] }} excluded — length {{ m[2] }} ≠ {{ m[1] }}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="chart-box" data-panel-id="{{ p.id }}" data-panel-config="{{ p.id }}"></div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="flex flex-col items-center justify-center gap-4 h-[70vh] rounded-2xl border border-dashed border-edge bg-[#0c101a]">
+  <div class="w-16 h-16 rounded-2xl bg-indigo-500/10 flex items-center justify-center">
+    <svg class="w-8 h-8 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 17l6-6 4 4 7-7"/></svg>
+  </div>
+  <div class="text-center space-y-1">
+    <p class="text-base font-medium text-slate-300">No panels yet</p>
+    <p class="text-sm text-slate-500">Open a .npz file and select arrays to plot.</p>
+  </div>
+</div>
+{% endif %}

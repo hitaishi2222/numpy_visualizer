@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NPZ Visualizer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: { extend: { colors: { surface: '#0b0e14', card: '#11151f', edge: '#232a3a' } } }
+    }
+  </script>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js"></script>
+  <style>
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: #2a3245; border-radius: 8px; }
+    .chart-box { width: 100%; height: 340px; }
+  </style>
+</head>
+<body class="bg-surface text-slate-200 antialiased">
+  <!-- top bar -->
+  <header class="flex items-center gap-3 h-16 px-5 border-b border-edge bg-[#0d1119]/90 backdrop-blur sticky top-0 z-10">
+    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+      <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 17l6-6 4 4 7-7"/></svg>
+    </div>
+    <h1 class="text-lg font-bold tracking-tight">NPZ Visualizer</h1>
+    <span class="text-xs px-2 py-0.5 rounded-full border border-edge text-slate-400">htmx + fastapi</span>
+    <div class="ml-auto">
+      {% if state.open_file %}
+      <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-edge bg-card">
+        <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4v10l8 4 8-4V7zM4 7l8 4m0 0l8-4m-8 4v10"/></svg>
+        <span class="text-sm font-medium text-indigo-300">{{ state.open_file }}</span>
+        {% if state.open_error %}<span class="text-xs px-2 py-0.5 rounded-full bg-red-500/15 text-red-300">load error</span>{% endif %}
+      </div>
+      {% else %}
+      <span class="text-sm text-slate-500">no file open</span>
+      {% endif %}
+    </div>
+  </header>
+
+  <div class="flex" style="height: calc(100vh - 64px)">
+    <!-- sidebar -->
+    <aside class="w-[340px] shrink-0 border-r border-edge bg-[#0c101a] overflow-y-auto">
+      <div class="p-4 space-y-5">
+
+        <!-- data source -->
+        <section class="space-y-2">
+          <div class="flex items-center gap-2 text-[11px] font-bold tracking-widest text-slate-400">
+            <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+            DATA SOURCE
+          </div>
+          <form hx-post="/scan" hx-target="#files-region" class="flex gap-2">
+            <input type="text" name="dir_path" value="{{ state.dir_path }}" placeholder="Path to folder of .npz files"
+                   class="flex-1 min-w-0 px-3 py-2 text-sm rounded-lg bg-card border border-edge focus:border-indigo-500 focus:outline-none placeholder:text-slate-600">
+            <button type="submit"
+                    class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-indigo-600 hover:bg-indigo-500 transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M19 11a8 8 0 11-16 0 8 8 0 0116 0z"/></svg>
+              Scan
+            </button>
+          </form>
+          {% if state.scan_error %}
+          <div class="flex gap-2 p-2.5 text-xs rounded-lg bg-red-500/10 border border-red-500/30 text-red-300">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+            {{ state.scan_error }}
+          </div>
+          {% endif %}
+        </section>
+
+        <!-- files -->
+        <section class="space-y-2">
+          <div class="flex items-center gap-2 text-[11px] font-bold tracking-widest text-slate-400">
+            <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4v10l8 4 8-4V7z"/></svg>
+            FILES
+          </div>
+          <div id="files-region">
+            {% include "partials/files.html" %}
+          </div>
+        </section>
+
+        <hr class="border-edge">
+
+        <!-- arrays + panels region (swapped together) -->
+        <div id="arrays-region">
+          {% include "partials/arrays.html" %}
+        </div>
+      </div>
+    </aside>
+
+    <!-- main -->
+    <main class="flex-1 overflow-y-auto p-4">
+      <div id="panels-region">
+        {% include "partials/panels.html" %}
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Dispose charts whose host elements are about to be replaced.
+    document.addEventListener('htmx:beforeSwap', function () {
+      document.querySelectorAll('[data-chart-id]').forEach(function (el) {
+        var inst = echarts.getInstanceByDom(el);
+        if (inst) inst.dispose();
+      });
+    });
+    document.addEventListener('htmx:afterSwap', renderCharts);
+    document.addEventListener('DOMContentLoaded', renderCharts);
+
+    function renderCharts() {
+      document.querySelectorAll('[data-panel-config]').forEach(function (el) {
+        if (el.dataset.rendered) return;
+        el.dataset.rendered = '1';
+        fetch('/data/' + el.dataset.panelId)
+          .then(function (r) { return r.json(); })
+          .then(function (payload) { buildChart(el, payload); });
+      });
+    }
+
+    function buildChart(el, payload) {
+      var chart = echarts.init(el, null, { renderer: 'canvas' });
+      if (payload.error) return;
+      var option;
+      if (payload.kind === 'grid' || payload.kind === 'slice') {
+        option = gridOption(payload);
+      } else {
+        option = lineOption(payload);
+      }
+      chart.setOption(option);
+      new ResizeObserver(function () { chart.resize(); }).observe(el);
+    }
+
+    function baseAxis() {
+      return {
+        axisLine: { lineStyle: { color: '#334155' } },
+        axisLabel: { color: '#94a3b8', fontSize: 11 },
+        splitLine: { lineStyle: { color: '#1b2233' } }
+      };
+    }
+
+    function lineOption(payload) {
+      var type = payload.plot_type;
+      var series = payload.series.map(function (s) {
+        var pts = s.x.map(function (x, i) { return [x, s.y[i]]; });
+        if (type === 'bar') return { name: s.name, type: 'bar', data: pts };
+        if (type === 'scatter') return { name: s.name, type: 'scatter', data: pts, symbolSize: 5 };
+        if (type === 'stem') return { name: s.name, type: 'bar', data: pts, barWidth: 2 };
+        return { name: s.name, type: 'line', data: pts, showSymbol: false, lineWidth: 2 };
+      });
+      return {
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis' },
+        legend: { textStyle: { color: '#94a3b8' }, top: 0 },
+        grid: { left: 48, right: 16, top: 32, bottom: 32 },
+        xAxis: Object.assign(baseAxis(), { type: 'value' }),
+        yAxis: Object.assign(baseAxis(), { type: 'value' }),
+        series: series
+      };
+    }
+
+    function gridOption(payload) {
+      var data = [];
+      var zmin = Infinity, zmax = -Infinity;
+      payload.z.forEach(function (row, yi) {
+        row.forEach(function (v, xi) {
+          if (v == null) return;
+          data.push([xi, yi, v]);
+          if (v < zmin) zmin = v; if (v > zmax) zmax = v;
+        });
+      });
+      if (!isFinite(zmin)) { zmin = 0; zmax = 1; }
+      return {
+        backgroundColor: 'transparent',
+        tooltip: { position: 'top' },
+        grid: { left: 48, right: 16, top: 16, bottom: 48 },
+        xAxis: Object.assign(baseAxis(), { type: 'category', data: payload.x }),
+        yAxis: Object.assign(baseAxis(), { type: 'category', data: payload.y }),
+        visualMap: {
+          min: zmin, max: zmax, calculable: true, orient: 'horizontal',
+          left: 'center', bottom: 0,
+          textStyle: { color: '#94a3b8' },
+          inRange: { color: ['#0b1e3f', '#2563eb', '#22d3ee', '#facc15', '#ef4444'] }
+        },
+        series: [{ type: 'heatmap', data: data, progressive: 5000 }]
+      };
+    }
+  </script>
+</body>
+</html>

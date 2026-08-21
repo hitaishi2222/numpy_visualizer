@@ -1,0 +1,79 @@
+{% if state.open_error %}
+<div class="flex gap-2 p-2.5 text-xs rounded-lg bg-red-500/10 border border-red-500/30 text-red-300">
+  <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+  {{ state.open_error }}
+</div>
+{% elif state.arrays %}
+
+<div class="space-y-2">
+  <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2 text-[11px] font-bold tracking-widest text-slate-400">
+      <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      ARRAYS
+    </div>
+    <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-white/5 text-slate-400">{{ state.arrays | length }}</span>
+    <div class="ml-auto flex gap-1">
+      <button hx-post="/select-all" hx-target="#arrays-region"
+              class="px-2 py-1 text-xs rounded-md bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25">All</button>
+      <button hx-post="/clear" hx-target="#arrays-region"
+              class="px-2 py-1 text-xs rounded-md bg-white/5 text-slate-400 hover:bg-white/10">Clear</button>
+    </div>
+  </div>
+
+  <div class="space-y-1.5 max-h-[calc(100vh-430px)] min-h-[240px] overflow-y-auto pr-1">
+    {% for a in state.arrays %}
+    <div class="p-3 rounded-xl bg-card border border-edge space-y-1.5">
+      <div class="flex items-center gap-2">
+        <input type="checkbox" {% if a.name in state.selected %}checked{% endif %}
+               hx-post="/toggle/{{ a.name }}" hx-target="#arrays-region"
+               class="accent-indigo-500 w-4 h-4 cursor-pointer">
+        <span class="font-mono text-sm font-medium truncate">{{ a.name }}</span>
+        {% if a.ndim == 1 %}
+        <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300">1-D</span>
+        {% elif a.ndim == 2 %}
+        <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300">2-D</span>
+        {% else %}
+        <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-300">{{ a.ndim }}-D</span>
+        {% endif %}
+        <span class="ml-auto text-xs text-slate-500">{{ a.size }}</span>
+      </div>
+      <div class="flex items-center gap-2 font-mono text-xs text-slate-500">
+        <span>{{ a.shape }}</span><span>·</span><span>{{ a.dtype }}</span>
+      </div>
+      {% if a.ndim == 1 and a.preview %}
+      <div class="px-2 py-1 rounded-md bg-white/[0.03] font-mono text-[11px] text-slate-500 break-all">
+        {{ a.preview }}
+      </div>
+      {% endif %}
+      {% include "partials/stats_line.html" %}
+    </div>
+    {% endfor %}
+  </div>
+
+  {% set ones_selected = state.arrays | selectattr("name", "in", state.selected) | selectattr("ndim", "equalto", 1) | list %}
+  {% if ones_selected | length >= 2 %}
+  <div class="p-3 rounded-xl bg-card border border-edge border-l-2 border-l-indigo-500 space-y-2">
+    <div class="flex items-center gap-2 text-xs font-bold">
+      <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 3v18M16 3v18M3 8h18M3 16h18"/></svg>
+      X axis (X/Y mode)
+    </div>
+    <form hx-post="/x" hx-target="#arrays-region">
+      <select name="x_key" onchange="this.form.requestSubmit()"
+              class="w-full px-2 py-1.5 text-xs rounded-lg bg-[#0b0e14] border border-edge focus:border-indigo-500 focus:outline-none">
+        <option value="">x = index</option>
+        {% for a in ones_selected %}
+        <option value="{{ a.name }}" {% if state.x_key == a.name %}selected{% endif %}>{{ a.name }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+  {% endif %}
+
+</div>
+
+{% else %}
+<div class="flex gap-2 p-2.5 text-xs rounded-lg bg-white/[0.03] border border-edge text-slate-400">
+  <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>
+  Open a file to see its arrays.
+</div>
+{% endif %}

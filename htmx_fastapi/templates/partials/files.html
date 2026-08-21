@@ -1,0 +1,14 @@
+{% if state.files %}
+<div class="space-y-0.5">
+  {% for f in state.files %}
+  <button hx-post="/open/{{ f.name }}" hx-target="#arrays-region"
+          class="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg text-left transition-colors
+                 {% if state.open_file == f.name %}bg-indigo-600 text-white{% else %}text-slate-300 hover:bg-white/5{% endif %}">
+    <svg class="w-3.5 h-3.5 shrink-0 opacity-70" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4v10l8 4 8-4V7z"/></svg>
+    <span class="truncate">{{ f.name }}</span>
+  </button>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-xs text-slate-500">No .npz files found.</p>
+{% endif %}

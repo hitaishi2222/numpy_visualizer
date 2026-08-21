@@ -1,0 +1,11 @@
+{% set s = state.stats.get(name) %}
+{% if s %}
+  {% if s.na %}
+  <p class="text-xs text-slate-500">stats: n/a (non-numeric)</p>
+  {% else %}
+  <p class="font-mono text-[11px] text-slate-500">{{ s.text }}</p>
+  {% endif %}
+{% else %}
+<button hx-get="/stats/{{ name }}" hx-target="closest div" hx-swap="innerHTML"
+        class="text-xs text-indigo-400 hover:text-indigo-300">Compute stats</button>
+{% endif %}
