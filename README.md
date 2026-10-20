@@ -1,5 +1,11 @@
 # NPZ Visualizer
 
+<p>
+  <img src="https://github.com/hitaishi2222/numpy_visualizer/actions/workflows/ci.yml/badge.svg" alt="CI"/>
+  <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square"/>
+  <img src="https://img.shields.io/badge/python-3.11+-3776AB?style=flat-square&logo=python&logoColor=3776AB"/>
+</p>
+
 A local, single-user web dashboard for exploring NumPy `.npz` archives — no
 code required. Point it at a folder of `.npz` files, browse the named arrays
 inside, pick the ones you care about (including choosing which array is **X**
